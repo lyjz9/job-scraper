@@ -1,4 +1,10 @@
-Job Tracker - Excel VBA Template + Python Scraper
+# JobLink Tracker
+
+JobLink Tracker is an open-source Python + Excel tool that helps job seekers turn job posting links into structured application tracker rows.
+
+Paste job links from company career pages or job boards, extract key details like company, title, location, work type, salary, and source, then export or update an Excel tracker.
+
+This project is built for students, new grads, and job seekers applying to many roles who want to reduce repetitive tracking work.
 
 Overview
 - Excel template to store and track job applications.
