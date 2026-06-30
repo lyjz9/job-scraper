@@ -134,6 +134,7 @@ Browser capture is still a helper, not a guarantee. Review captured results befo
 
 - Start with company career pages when possible. They usually contain cleaner job data than reposts on aggregator sites.
 - Some sites block automation, require login, or hide job details behind private APIs, so results will not be perfect for every link. Use browser capture for pages that you can open yourself.
+- Monster search pages and many Monster job-detail links are not reliable scraper inputs. If Monster opens or links to the employer/company job page, use that employer link instead.
 - Source should be a readable label such as Indeed, LinkedIn, Glassdoor, Greenhouse, or Company Website.
 - Work Type should be Remote, Hybrid, Onsite, or n/a. If the posting does not explicitly say the work type, use n/a.
 - Salary should show n/a when no trustworthy salary is found.

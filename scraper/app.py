@@ -110,6 +110,9 @@ def _rate_limited(client):
 
 
 def _scrape_url(url):
+    if _is_monster_search_url(url):
+        return _monster_guidance_result(url)
+
     result = {}
     terminal_error = False
     for attempt in range(2):
@@ -145,8 +148,32 @@ def _scrape_url(url):
         result['review_issues'] = issues
         result['review_notes'] = _review_notes(issues)
     if raw_error:
-        result['error'] = _friendly_error(raw_error)
+        result['error'] = _friendly_error(raw_error, url)
     return result
+
+
+def _is_monster_search_url(url):
+    parsed = urlparse(url or '')
+    host = parsed.netloc.lower()
+    return 'monster.com' in host and parsed.path.rstrip('/').lower() in {'/jobs/search', '/jobs'}
+
+
+def _monster_guidance_result(url):
+    return {
+        'date_applied': datetime.now().strftime('%m/%d/%Y'),
+        'company': 'n/a',
+        'job_title': 'n/a',
+        'job_link': url,
+        'status': '',
+        'location': 'n/a',
+        'work_type': 'n/a',
+        'salary': 'n/a',
+        'follow_up': '',
+        'source': 'Monster',
+        'error': 'Monster search pages are not supported. Open the employer or company job page from Monster and use that link instead.',
+        'review_issues': ['monster_search_page'],
+        'review_notes': 'Monster search pages show many jobs at once, so JobLink cannot turn them into one accurate tracker row. Use the employer/company job page link from Monster instead.',
+    }
 
 
 def _quality_issues(result):
@@ -226,8 +253,10 @@ def issues():
     return jsonify(records[-100:])
 
 
-def _friendly_error(error):
+def _friendly_error(error, url=''):
     low = str(error or '').lower()
+    if 'monster.com' in urlparse(url or '').netloc.lower():
+        return 'Monster blocks reliable job-detail scraping. Open the employer or company job page from Monster and use that link instead.'
     if any(marker in low for marker in ('http 404', 'http 410', 'unavailable', 'general careers page')):
         return 'This posting is unavailable or has expired.'
     if any(marker in low for marker in ('blocked automated access', 'access denied', 'captcha')):
