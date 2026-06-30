@@ -1094,6 +1094,7 @@ def _extract_url_hints(url, platform=''):
         index = parts.index('jobs')
         if index + 1 < len(parts):
             slug = re.sub(r'^\d+-', '', parts[index + 1])
+            slug = re.sub(r'-clone$', '', slug, flags=re.I)
             hints['job_title'] = _title_from_slug(slug)
     elif 'naukri.com' in host and parts:
         slug = re.sub(r'^job-listings-', '', parts[0], flags=re.I)
@@ -1431,6 +1432,7 @@ def _extract_company_from_text(text, platform=''):
 def _clean_title(title, company=''):
     title = _clean_linkedin_title(_clean_value(title))
     title = re.sub(r'\s*[-|]\s*(Careers|Jobs|LinkedIn|Indeed).*$','', title, flags=re.I)
+    title = re.sub(r'\s+\bclone\b$', '', title, flags=re.I)
     if company:
         title = re.sub(rf'\s*[-|]\s*{re.escape(company)}.*$', '', title, flags=re.I)
     for acronym in ('AI', 'ML', 'HR', 'IT', 'QA', 'QC', 'SQL', 'API', 'CRM', 'UX', 'UI'):

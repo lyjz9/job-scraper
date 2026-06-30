@@ -30,6 +30,7 @@ from scraper.browser_scraper_v2 import (
     _extract_contextual_salary,
     _extract_salary,
     _extract_work_type,
+    _extract_url_hints,
     _reasonable,
     _source_label,
 )
@@ -275,6 +276,7 @@ def _parse_captured_page(payload):
     text = str(payload.get('text') or '')
     lines = _capture_lines(text)
     platform = _detect_platform(url)
+    url_hints = _extract_url_hints(url, platform)
     soup = _capture_soup(payload)
     meta = payload.get('meta') if isinstance(payload.get('meta'), dict) else {}
     meta_text = _capture_meta_text(meta, soup)
@@ -302,6 +304,10 @@ def _parse_captured_page(payload):
     for key, value in _capture_structured_fields(soup).items():
         _merge_capture_value(result, evidence, key, value, 'structured')
 
+    for key in ('job_title', 'location'):
+        if url_hints.get(key):
+            _merge_capture_value(result, evidence, key, url_hints[key], 'url')
+
     for key, values in candidate_fields.items():
         for value in values:
             if _merge_capture_value(result, evidence, key, value, 'page_label'):
@@ -324,13 +330,15 @@ def _parse_captured_page(payload):
         _merge_capture_value(result, evidence, 'company', _capture_company(lines, result['job_title'], title_company), 'text')
     if _missing(result['company']):
         _merge_capture_value(result, evidence, 'company', _capture_company(_capture_lines(html_text), result['job_title'], title_company), 'html')
+    if platform == 'wellfound' and _missing(result['company']):
+        _merge_capture_value(result, evidence, 'company', _capture_wellfound_company(rich_text, result['job_title']), 'text')
 
     if _missing(result['location']):
         _merge_capture_value(result, evidence, 'location', _capture_location(lines) or _capture_location(rich_text), 'text')
     if _missing(result['work_type']):
         _merge_capture_value(result, evidence, 'work_type', _capture_work_type(rich_text, url), 'text')
     if _missing(result['salary']):
-        _merge_capture_value(result, evidence, 'salary', _extract_contextual_salary(rich_text) or _extract_salary(rich_text), 'text')
+        _merge_capture_value(result, evidence, 'salary', _capture_salary(rich_text), 'text')
 
     public = _public_scrape_result(result)
     issues = _quality_issues(public)
@@ -671,7 +679,7 @@ def _capture_salary(value):
         return ''
     money = _extract_contextual_salary(text) or _extract_salary(text)
     if money:
-        return money
+        return _salary_with_nearby_equity(text, money)
     budget = re.search(
         r'\b(?:budget|hourly|fixed[-\s]?price|rate)\b.{0,80}?'
         r'(\$\s*\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:-|\u2013|\u2014|to)\s*\$?\s*\d+(?:,\d{3})*(?:\.\d+)?)?(?:\s*/?\s*(?:hr|hour|wk|week|yr|year))?)',
@@ -683,6 +691,23 @@ def _capture_salary(value):
     return ''
 
 
+def _salary_with_nearby_equity(text, salary):
+    salary = _clean_value(salary)
+    if not salary:
+        return ''
+    start = text.lower().find(salary.lower())
+    window = text if start < 0 else text[start:start + 260]
+    equity = re.search(
+        r'(\d+(?:\.\d+)?\s*%\s*(?:-|\u2013|\u2014|to)\s*\d+(?:\.\d+)?\s*%|\d+(?:\.\d+)?\s*%)\s*(?:equity|stock options?|options?)?',
+        window,
+        flags=re.I,
+    )
+    if equity and equity.group(1) not in salary:
+        label = ' equity' if not re.search(r'\b(?:equity|stock|options?)\b', equity.group(0), flags=re.I) else ''
+        return _clean_value(f'{salary} + {equity.group(1)}{label}')
+    return salary
+
+
 def _clean_upwork_client(value):
     text = _clean_capture_line(value)
     text = re.sub(r'^(?:client|posted by|hiring client)\s*[:\-]?\s*', '', text, flags=re.I).strip()
@@ -690,6 +715,37 @@ def _clean_upwork_client(value):
     if text.lower() in {'client', 'upwork client', 'payment verified'}:
         return ''
     return text
+
+
+def _capture_wellfound_company(text, job_title=''):
+    text = _clean_value(text)
+    job_title = _clean_capture_line(job_title)
+    if not text:
+        return ''
+
+    title_pattern = re.escape(job_title) if job_title else r'[A-Z][A-Za-z0-9&,\- ]{4,120}'
+    for pattern in (
+        rf'{title_pattern}\s+at\s+([^|•·,\n]{{2,80}})',
+        r'\bCompany\s*[:\-]\s*([^|•·,\n]{2,80})',
+        r'\bHiring company\s*[:\-]\s*([^|•·,\n]{2,80})',
+    ):
+        match = re.search(pattern, text, flags=re.I)
+        if match and _company_candidate(match.group(1)):
+            return _clean_capture_line(match.group(1))
+
+    lines = _capture_lines(text)
+    for index, line in enumerate(lines[:160]):
+        if job_title and line.lower() == job_title.lower():
+            for offset in (1, 2, -1, -2):
+                pos = index + offset
+                if 0 <= pos < len(lines) and _company_candidate(lines[pos]):
+                    return lines[pos]
+        if re.fullmatch(r'(?:Actively Hiring|Recently Posted|Early Stage|Growing Fast)', line, flags=re.I):
+            continue
+        if index + 1 < len(lines) and re.search(r'\b(?:founder|recruiter|hiring manager|talent)\b', lines[index + 1], flags=re.I):
+            if _company_candidate(line):
+                return line
+    return ''
 
 
 def _clean_capture_line(value):
@@ -770,9 +826,11 @@ def _company_candidate(value):
         'remote', 'hybrid', 'onsite', 'on-site', 'full-time', 'part-time',
         'upwork', 'linkedin', 'indeed', 'glassdoor', 'ziprecruiter',
         'simplyhired', 'dice', 'monster', 'wellfound',
+        'actively hiring', 'recently posted', 'early stage', 'growing fast',
+        'founder', 'recruiter', 'hiring manager', 'talent',
     }:
         return False
-    if re.search(r'\$|\b(?:posted|apply|location|salary|full-time|part-time|contract)\b', low):
+    if re.search(r'\$|\b(?:posted|apply|location|salary|full-time|part-time|contract|equity|employees|founded|jobs)\b', low):
         return False
     return len(value) <= 80
 
