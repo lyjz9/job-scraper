@@ -6,7 +6,15 @@ Paste in job links from company career pages or job boards, and the tool tries t
 
 It is especially meant for students, new grads, and anyone applying to a lot of roles at once.
 
-> Status: Early public beta. This project is actively being improved.
+> Status: v0.1 local beta. This project is actively being improved and is not a hosted public app yet.
+
+## Known Limitations
+
+JobLink Tracker is a helper, not a perfect scraper. Company career pages and applicant-tracking-system links usually work best. Some job boards, login-only pages, Cloudflare checks, human verification pages, private APIs, and JavaScript-heavy pages may block scraping or return incomplete fields.
+
+Rows marked for review should be checked manually before they are added to a real application tracker. Salary, work type, and location are especially important to verify because different websites format these fields differently.
+
+See [docs/known_limitations.md](docs/known_limitations.md) for more detail.
 
 
 ## Why I Built This
@@ -20,7 +28,8 @@ JobLink Tracker is my attempt to make that process less annoying. It does not tr
 - Pull company, job title, location, salary, and work type from job posting links.
 - Save results in an Excel-friendly application tracker format.
 - Process one link at a time or a batch of links from an Excel workbook.
-- Flag rows that may need a manual review.
+- Flag rows that may need a manual review with confidence and source reliability labels.
+- Save problem rows locally for later scraper debugging.
 - Help reduce repetitive copy-and-paste work during a job search.
 
 ## How It Works
@@ -50,6 +59,9 @@ python -m playwright install chromium
 If Python 3.12 is not installed, Python 3.11 also works. On macOS or Linux, use `python3` instead of `py -3.12` if needed.
 
 ## Usage
+
+More examples are available in [docs/usage_examples.md](docs/usage_examples.md).
+For common setup and scraping issues, see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 To test one job link directly:
 
@@ -143,7 +155,11 @@ Browser capture is still a helper, not a guarantee. Review captured results befo
 - Work Type should be Remote, Hybrid, Onsite, or n/a. If the posting does not explicitly say the work type, use n/a.
 - Salary should show n/a when no trustworthy salary is found.
 
-## Focus
+## Privacy
+
+The beta runs locally. Do not commit personal tracker files, generated Excel exports, logs, screenshots, or notes that contain private applications, email addresses, job history, or personal comments.
+
+## Roadmap
 
 - Make salary extraction more reliable, especially hourly pay, yearly ranges, and LinkedIn base-pay text.
 - Clean up location results when pages include extra words like posting status, job category, or repeated page text.
@@ -152,6 +168,7 @@ Browser capture is still a helper, not a guarantee. Review captured results befo
 - Improve source labels for school career sites, reposts, and company career pages.
 - Add a small set of real test links that cover the tricky cases found during testing.
 - Add screenshots or a short demo once the main workflow feels stable.
+- Add a hosted demo later, with authentication if exposed beyond localhost.
 
 ## Contributing
 
@@ -164,12 +181,6 @@ If you report a scraping issue, include:
 - The job posting URL.
 - What field was wrong or missing.
 - The output you expected.
-
-## Known Limitations
-
-JobLink Tracker is a helper, not a perfect scraper. Extraction quality varies across job boards and company career pages. Some sites block automation, require login, or render job details behind private APIs.
-
-The goal is to reduce repetitive tracking work, but you should still review results before saving them.
 
 ## License
 
